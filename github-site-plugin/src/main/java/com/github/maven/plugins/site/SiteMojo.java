@@ -30,6 +30,8 @@ import static org.eclipse.egit.github.core.TypedResource.TYPE_COMMIT;
 import com.github.maven.plugins.core.GitHubProjectMojo;
 import com.github.maven.plugins.core.PathUtils;
 import com.github.maven.plugins.core.StringUtils;
+import com.google.common.base.Strings;
+import com.google.common.io.Files;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -241,30 +243,16 @@ public class SiteMojo extends GitHubProjectMojo {
 	protected String createBlob(DataService service, RepositoryId repository,
 			String path) throws MojoExecutionException {
 		File file = new File(outputDirectory, path);
-		final long length = file.length();
-		final int size = length > MAX_VALUE ? MAX_VALUE : (int) length;
-		ByteArrayOutputStream output = new ByteArrayOutputStream(size);
-		FileInputStream stream = null;
+		byte[] output;
 		try {
-			stream = new FileInputStream(file);
-			final byte[] buffer = new byte[8192];
-			int read;
-			while ((read = stream.read(buffer)) != -1)
-				output.write(buffer, 0, read);
+			output = Files.toByteArray(file);
 		} catch (IOException e) {
 			throw new MojoExecutionException("Error reading file: "
 					+ getExceptionMessage(e), e);
-		} finally {
-			if (stream != null)
-				try {
-					stream.close();
-				} catch (IOException e) {
-					debug("Exception closing stream", e);
-				}
 		}
 
 		Blob blob = new Blob().setEncoding(ENCODING_BASE64);
-		String encoded = EncodingUtils.toBase64(output.toByteArray());
+		String encoded = EncodingUtils.toBase64(output);
 		blob.setContent(encoded);
 
 		try {
@@ -313,9 +301,7 @@ public class SiteMojo extends GitHubProjectMojo {
 
 		// Write blobs and build tree entries
 		List<TreeEntry> entries = new ArrayList<TreeEntry>(paths.length);
-		String prefix = path;
-		if (prefix == null)
-			prefix = "";
+		String prefix = Strings.nullToEmpty(path);
 		if (prefix.length() > 0 && !prefix.endsWith("/"))
 			prefix += "/";
 
